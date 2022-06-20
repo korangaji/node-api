@@ -12,6 +12,7 @@ router.post('/add', (req, res, next) => {
     'countryDialCode',
     'phone',
     'email',
+    'password',
     'address',
     'city',
     'country',
@@ -66,7 +67,7 @@ router.post('/add', (req, res, next) => {
 });
 
 //update candidate profile
-router.put('/update/:candidateId', (req, res, next) => {
+router.put('/update/:candidateId', _lib.Auth.candidateAuth, (req, res, next) => {
   let candidateId = req.params.candidateId;
   if (candidateId === 'undefined' || candidateId === null) {
     res.json({
@@ -146,7 +147,7 @@ router.get('/get/all', (req, res, next) => {
 });
 
 //get candidate by Id
-router.get('/get/:candidateId', (req, res, next) => {
+router.get('/get/:candidateId', _lib.Auth.candidateAuth, (req, res, next) => {
   let candidateId = req.params.candidateId;
   if (candidateId === 'undefined' || candidateId === null) {
     res.json({
@@ -178,7 +179,7 @@ router.get('/get/:candidateId', (req, res, next) => {
 });
 
 //delete candidate by id
-router.delete('/delete/:candidateId', (req, res, next) => {
+router.delete('/delete/:candidateId', _lib.Auth.candidateAuth, (req, res, next) => {
   let candidateId = req.params.candidateId;
   if (candidateId === 'undefined' || candidateId === null) {
     res.json({
@@ -201,28 +202,17 @@ router.delete('/delete/:candidateId', (req, res, next) => {
 
 //candidate login
 router.post('/login', (req, res, next) => {
-  let body = _.pick(req.body, ['countryDialCode', 'mobile', 'email', 'password']);
+  let body = _.pick(req.body, ['email', 'password']);
   _db.candidates
-    .findByCredentials(body.countryDialCode, body.mobile, body.email, body.password)
-    .then((user) => {
-      _db.userTypes
-        .findById(user.userType)
-        .then((userType) => {
-          if (userType) {
-            return user.generateAuthToken(userType.acronym).then((token) => {
-              res.header('auth-key', token).json(user);
-            });
-          } else {
-            res.json({ status: 'error', message: 'Invalid user type!' });
-          }
-        })
-        .catch((e) => {
-          res.status(400).send(e);
-        });
+    .findByCredentials(body.email, body.password)
+    .then((candidate) => {
+      return candidate.generateAuthToken().then((token) => {
+        res.header('auth-key', token).json(candidate);
+      });
     })
     .catch((e) => {
       if (e.notFound) {
-        res.json({ status: 'error', message: 'User not found!' });
+        res.json({ status: 'error', message: 'Candidate not found!' });
       } else {
         res.status(400).send(e);
       }
@@ -230,44 +220,37 @@ router.post('/login', (req, res, next) => {
 });
 
 //candidate password change
-router.post('/change-password', _lib.Auth.userAuth, (req, res) => {
+router.post('/change-password', _lib.Auth.candidateAuth, (req, res) => {
   let body = _.pick(req.body, ['userId', 'password']);
-  if (req.user.userTypeIdentifier === 'AD' || req.user.userTypeIdentifier === 'OP') {
-    if (!body.userId && !body.password) return res.status(400).send();
-    _db.candidates
-      .findById(body.userId)
-      .then((users) => {
-        if (!users) {
-          return res.json({
-            status: 'error',
-            message: 'Invalid user id!',
-          });
-        }
-        users.password = body.password;
-        users
-          .save()
-          .then(() => users.removeAllTokens())
-          .then(() =>
-            res.json({
-              status: 'success',
-              message: 'Password changed successfully.',
-            }),
-          )
-          .catch((e) => res.status(500).send(e));
-      })
-      .catch((e) => res.status(400).send(e));
-  } else {
-    return res.status(401).json({
-      status: 'error',
-      message: 'Invalid Credentials!',
-    });
-  }
+  if (!body.userId && !body.password) return res.status(400).send();
+  _db.candidates
+    .findById(body.userId)
+    .then((candidate) => {
+      if (!candidate) {
+        return res.json({
+          status: 'error',
+          message: 'Invalid user id!',
+        });
+      }
+      candidate.password = body.password;
+      candidate
+        .save()
+        .then(() => candidate.removeAllTokens())
+        .then(() =>
+          res.json({
+            status: 'success',
+            message: 'Password changed successfully.',
+          }),
+        )
+        .catch((e) => res.status(500).send(e));
+    })
+    .catch((e) => res.status(400).send(e));
 });
 
 //candidate logout
-router.post('/logout', _lib.Auth.userAuth, (req, res) => {
-  let user = req.candidate;
-  user
+router.post('/logout', _lib.Auth.candidateAuth, (req, res) => {
+  let candidate = req.candidate;
+  candidate
     .removeToken(req.token)
     .then(() => {
       res.json({

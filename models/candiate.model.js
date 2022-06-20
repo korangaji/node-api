@@ -76,12 +76,12 @@ const candidateSchema = new mongoose.Schema({
 candidateSchema.methods.toJSON = function () {
   var candidate = this;
   var candidateObj = candidate.toObject();
-  return _.omit(candidateObj, ['__v']);
+  return _.omit(candidateObj, ['__v', 'password', 'tokens']);
 };
 
-candidateSchema.methods.generateAuthToken = function (role) {
+candidateSchema.methods.generateAuthToken = function () {
   var candidate = this;
-  const access = role;
+  const access = 'auth';
   const privateKey = process.env.TOKEN_SECRET;
 
   var token = jwt
@@ -134,30 +134,24 @@ candidateSchema.statics.findByToken = function (token) {
   });
 };
 
-candidateSchema.statics.findByCredentials = function (countryDialCode, mobile, email, password) {
+candidateSchema.statics.findByCredentials = function (email, password) {
   let candidate = this;
-  return candidate
-    .findOne(
-      email && email.length > 0
-        ? { email, active: true, deleted: false }
-        : { countryDialCode, mobile, active: true, deleted: false },
-    )
-    .then((candidate) => {
-      if (!candidate) return Promise.reject({ notFound: true });
+  return candidate.findOne({ email }).then((candidate) => {
+    if (!candidate) return Promise.reject({ notFound: true });
 
-      return new Promise((resolve, reject) => {
-        bcrypt.compare(password, candidate.password, (err, res) => {
-          if (res) {
-            resolve(candidate);
-          } else {
-            reject({
-              wrongPassword: true,
-              message: 'Entered login password is incorrect!',
-            });
-          }
-        });
+    return new Promise((resolve, reject) => {
+      bcrypt.compare(password, candidate.password, (err, res) => {
+        if (res) {
+          resolve(candidate);
+        } else {
+          reject({
+            wrongPassword: true,
+            message: 'Entered login password is incorrect!',
+          });
+        }
       });
     });
+  });
 };
 
 // pre-update hook to salt-hash the password before storing
