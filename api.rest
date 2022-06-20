@@ -1,0 +1,47 @@
+GET http://127.0.0.1:9001 HTTP/1.1
+content-type: application/json
+
+###
+GET http://127.0.0.1:9001/candidates/get/all HTTP/1.1
+content-type: application/json
+
+###
+POST http://127.0.0.1:9001/candidates/add HTTP/1.1
+content-type: application/json
+
+{
+  "name":"Chandan Singh",
+  "dob": "01/07/1980",
+  "countryDialCode": "+91",
+  "phone": "8077417818",
+  "email": "chandank@gmail.com",
+  "address": "Chandan ka address",
+  "city": "Lucknow",
+  "country": "India",
+  "pin": "226024",
+  "gitprofile": "https://chandan.github.com"  
+}
+
+###
+GET http://127.0.0.1:9001/candidates/get/62ad85cc0a0997081a4956cd HTTP/1.1
+content-type: application/json
+
+###
+PUT http://127.0.0.1:9001/candidates/update/62ad85cc0a0997081a4956cd HTTP/1.1
+content-type: application/json
+
+{
+  "name":"Chandan S Koranga",
+  "dob": "01/07/1980",
+  "countryDialCode": "+91",
+  "phone": "8077417818",  
+  "address": "Chandan k ghr ka new address",
+  "city": "Lucknow",
+  "country": "India",
+  "pin": "226024",
+  "gitprofile": "https://chandan.github.com"  
+}
+
+###
+DELETE  http://127.0.0.1:9001/candidates/delete/62af365d0759697e023c1c1d HTTP/1.1
+content-type: application/json
