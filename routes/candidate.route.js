@@ -2,6 +2,7 @@
 const router = require('express').Router();
 const _ = require('lodash');
 const _db = require('../models');
+const _lib = require('../lib');
 
 //add new candidate
 router.post('/add', (req, res, next) => {
@@ -17,6 +18,18 @@ router.post('/add', (req, res, next) => {
     'pin',
     'gitprofile',
   ]);
+  if (!body.password) {
+    return res.json({
+      status: 'error',
+      message: 'Password is required',
+    });
+  }
+  if (!body.name && !body.email) {
+    return res.json({
+      status: 'error',
+      message: 'Provide candidate name and email',
+    });
+  }
   body.createdOn = new Date().getTime();
   _db.candidates
     .findOne({ email: body.email })
@@ -184,6 +197,85 @@ router.delete('/delete/:candidateId', (req, res, next) => {
         message: e.message,
       });
     });
+});
+
+//candidate login
+router.post('/login', (req, res, next) => {
+  let body = _.pick(req.body, ['countryDialCode', 'mobile', 'email', 'password']);
+  _db.candidates
+    .findByCredentials(body.countryDialCode, body.mobile, body.email, body.password)
+    .then((user) => {
+      _db.userTypes
+        .findById(user.userType)
+        .then((userType) => {
+          if (userType) {
+            return user.generateAuthToken(userType.acronym).then((token) => {
+              res.header('auth-key', token).json(user);
+            });
+          } else {
+            res.json({ status: 'error', message: 'Invalid user type!' });
+          }
+        })
+        .catch((e) => {
+          res.status(400).send(e);
+        });
+    })
+    .catch((e) => {
+      if (e.notFound) {
+        res.json({ status: 'error', message: 'User not found!' });
+      } else {
+        res.status(400).send(e);
+      }
+    });
+});
+
+//candidate password change
+router.post('/change-password', _lib.Auth.userAuth, (req, res) => {
+  let body = _.pick(req.body, ['userId', 'password']);
+  if (req.user.userTypeIdentifier === 'AD' || req.user.userTypeIdentifier === 'OP') {
+    if (!body.userId && !body.password) return res.status(400).send();
+    _db.candidates
+      .findById(body.userId)
+      .then((users) => {
+        if (!users) {
+          return res.json({
+            status: 'error',
+            message: 'Invalid user id!',
+          });
+        }
+        users.password = body.password;
+        users
+          .save()
+          .then(() => users.removeAllTokens())
+          .then(() =>
+            res.json({
+              status: 'success',
+              message: 'Password changed successfully.',
+            }),
+          )
+          .catch((e) => res.status(500).send(e));
+      })
+      .catch((e) => res.status(400).send(e));
+  } else {
+    return res.status(401).json({
+      status: 'error',
+      message: 'Invalid Credentials!',
+    });
+  }
+});
+
+//candidate logout
+router.post('/logout', _lib.Auth.userAuth, (req, res) => {
+  let user = req.candidate;
+  user
+    .removeToken(req.token)
+    .then(() => {
+      res.json({
+        status: 'success',
+        message: 'User Logged Out successfully.',
+      });
+    })
+    .catch((err) => res.status(500).send(err));
 });
 
 module.exports = router;
