@@ -200,7 +200,7 @@ router.delete('/delete/:candidateId', _lib.Auth.candidateAuth, (req, res, next) 
     });
 });
 
-//candidate login
+//candidate login api
 router.post('/login', (req, res, next) => {
   let body = _.pick(req.body, ['email', 'password']);
   _db.candidates
