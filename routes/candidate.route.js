@@ -207,7 +207,7 @@ router.post('/login', (req, res, next) => {
     .findByCredentials(body.email, body.password)
     .then((candidate) => {
       return candidate.generateAuthToken().then((token) => {
-        res.header('auth-key', token).json(candidate);
+        res.header('auth-key', token).json({ ...candidate, token });
       });
     })
     .catch((e) => {
